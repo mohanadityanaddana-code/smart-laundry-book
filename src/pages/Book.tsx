@@ -18,7 +18,7 @@ import {
   WashingMachine,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   dayOfMonth,
   durationLabel,
@@ -102,6 +102,7 @@ function Stepper({ current }: { current: number }) {
 export default function Book() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState(0);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedMachine, setSelectedMachine] = useState<Id<"machines"> | null>(null);
@@ -127,6 +128,17 @@ export default function Book() {
   useEffect(() => {
     if (week && !selectedDate) setSelectedDate(week.today);
   }, [week, selectedDate]);
+
+  // QR flow: /book?machine=<id> preselects the scanned machine and jumps to
+  // its slot list (step 2). Re-validated by the booking engine on confirm.
+  useEffect(() => {
+    const fromQr = searchParams.get("machine");
+    if (fromQr && week && !selectedMachine) {
+      setSelectedMachine(fromQr as Id<"machines">);
+      setStep(2);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [week]);
 
   const machine = useMemo(
     () => machines?.find((m) => m._id === selectedMachine) ?? null,

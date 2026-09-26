@@ -66,6 +66,74 @@ export const syncMe = mutation({
   },
 });
 
+const PREF_KEYS = ["bookingUpdates", "machineReady", "weather", "startingSoon"] as const;
+export type NotifPrefs = {
+  bookingUpdates: boolean;
+  machineReady: boolean;
+  weather: boolean;
+  startingSoon: boolean;
+};
+const DEFAULT_PREFS: NotifPrefs = {
+  bookingUpdates: true,
+  machineReady: true,
+  weather: true,
+  startingSoon: true,
+};
+
+/** The signed-in student's notification preferences (defaults when unset). */
+export const getPrefs = query({
+  args: {},
+  handler: async (ctx): Promise<NotifPrefs> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return DEFAULT_PREFS;
+    const row = await ctx.db
+      .query("notificationPrefs")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (!row) return DEFAULT_PREFS;
+    const out = { ...DEFAULT_PREFS };
+    for (const key of PREF_KEYS) {
+      if (typeof row[key] === "boolean") out[key] = row[key] as boolean;
+    }
+    return out;
+  },
+});
+
+/** Update the signed-in student's notification preferences. */
+export const setPrefs = mutation({
+  args: {
+    bookingUpdates: v.optional(v.boolean()),
+    machineReady: v.optional(v.boolean()),
+    weather: v.optional(v.boolean()),
+    startingSoon: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<NotifPrefs> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Not signed in");
+    const row = await ctx.db
+      .query("notificationPrefs")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    const next: NotifPrefs = row
+      ? {
+          bookingUpdates: row.bookingUpdates,
+          machineReady: row.machineReady,
+          weather: row.weather,
+          startingSoon: row.startingSoon,
+        }
+      : { ...DEFAULT_PREFS };
+    for (const key of PREF_KEYS) {
+      if (args[key] !== undefined) next[key] = args[key] as boolean;
+    }
+    if (row) {
+      await ctx.db.patch(row._id, next);
+    } else {
+      await ctx.db.insert("notificationPrefs", { userId, ...next });
+    }
+    return next;
+  },
+});
+
 /** Update the signed-in student's editable profile fields. */
 export const updateProfile = mutation({
   args: {

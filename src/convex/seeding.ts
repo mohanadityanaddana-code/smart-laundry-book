@@ -39,6 +39,26 @@ export const seed = mutation({
       results.push("settings: exists");
     }
 
+    // 1b. Default voice template (machine-ready AI call) ---------------------
+    const readyTemplate = await ctx.db
+      .query("voiceTemplates")
+      .withIndex("by_type", (q) => q.eq("type", "machine_ready"))
+      .first();
+    if (!readyTemplate) {
+      await ctx.db.insert("voiceTemplates", {
+        name: "Machine ready — default",
+        type: "machine_ready",
+        text:
+          "Hello {student_name}, this is {pg_name} Laundry. Machine {machine_number} is ready for your {start_time} slot. Please collect your clothes and start your wash.",
+        active: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      results.push("voice template machine_ready: created");
+    } else {
+      results.push("voice template machine_ready: exists");
+    }
+
     // 2. Machines -----------------------------------------------------------
     const machineSpecs = [
       { n: 1, kg: 7, location: "Ground Floor", minutes: 90 },

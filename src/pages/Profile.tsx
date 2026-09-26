@@ -7,14 +7,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
-import { useMutation } from "convex/react";
+import { Switch } from "@/components/ui/switch";
+import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import { Loader2, MailCheck, Save, ShieldCheck } from "lucide-react";
+import { BellRing, Loader2, MailCheck, Save, ShieldCheck } from "lucide-react";
 
 export default function Profile() {
   const { user } = useAuth();
   const updateProfile = useMutation(api.profile.updateProfile);
+  const prefs = useQuery(api.profile.getPrefs);
+  const setPrefs = useMutation(api.profile.setPrefs);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [room, setRoom] = useState("");
@@ -46,6 +49,21 @@ export default function Profile() {
       toast.error(err instanceof Error ? err.message : "Could not save profile");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const PREF_ROWS = [
+    { key: "machineReady" as const, label: "Machine ready alerts", hint: "Tell me the moment my machine is free" },
+    { key: "startingSoon" as const, label: "Starting-soon reminders", hint: "20-minute heads-up before my slot" },
+    { key: "bookingUpdates" as const, label: "Booking updates", hint: "Confirmations, cancellations and reschedules" },
+    { key: "weather" as const, label: "Weather & drying tips", hint: "Rain guidance after I finish laundry" },
+  ];
+
+  const handlePref = async (key: "bookingUpdates" | "machineReady" | "weather" | "startingSoon", value: boolean) => {
+    try {
+      await setPrefs({ [key]: value });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update preferences");
     }
   };
 
@@ -124,6 +142,36 @@ export default function Profile() {
                 <span className="text-muted-foreground">Email</span>
                 <span className="max-w-[10rem] truncate font-medium">{user.email}</span>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BellRing className="size-4 text-primary" /> Notification preferences
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {prefs === undefined
+                ? Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="my-1.5 h-9 rounded-lg" />
+                  ))
+                : PREF_ROWS.map((row) => (
+                    <div
+                      key={row.key}
+                      className="flex items-center justify-between gap-3 rounded-lg px-1 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{row.label}</p>
+                        <p className="text-xs text-muted-foreground">{row.hint}</p>
+                      </div>
+                      <Switch
+                        checked={prefs[row.key]}
+                        onCheckedChange={(v) => handlePref(row.key, v)}
+                        aria-label={row.label}
+                      />
+                    </div>
+                  ))}
             </CardContent>
           </Card>
 

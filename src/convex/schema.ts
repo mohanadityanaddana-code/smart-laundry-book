@@ -168,6 +168,16 @@ const schema = defineSchema(
       startingSoon: v.boolean(),
     }).index("by_user", ["userId"]),
 
+    // Administrative audit log (admin actions only, admin-read only)
+    auditLog: defineTable({
+      adminUserId: v.id("users"),
+      action: v.string(),
+      targetEntity: v.string(),
+      targetId: v.optional(v.string()),
+      metadata: v.string(),
+      at: v.number(),
+    }).index("by_at", ["at"]),
+
     // Monotonic per-day counters used to generate race-safe booking IDs
     counters: defineTable({
       key: v.string(), // "bookingId:YYYY-MM-DD"

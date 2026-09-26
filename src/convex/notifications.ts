@@ -120,13 +120,19 @@ export const markAllRead = mutation({
 });
 
 /**
- * Student response to a machine-ready prompt. "I'm coming" acknowledges and
- * stops further chasing; "Can't come" cancels the booking (freeing the slot).
+ * Student response to a machine-ready prompt with four options. Any response
+ * stops escalation. "I'm coming" / "Accept" acknowledge; "Can't come" cancels
+ * the booking (freeing the slot); "Need more time" pauses chasing briefly.
  */
 export const respondToReady = mutation({
   args: {
     notificationId: v.id("notifications"),
-    response: v.union(v.literal("COMING"), v.literal("CANT_COME")),
+    response: v.union(
+      v.literal("COMING"),
+      v.literal("ACCEPT"),
+      v.literal("CANT_COME"),
+      v.literal("NEED_TIME"),
+    ),
   },
   handler: async (ctx, { notificationId, response }) => {
     const userId = await getAuthUserId(ctx);
@@ -136,21 +142,48 @@ export const respondToReady = mutation({
     if (n.actionState !== "PENDING") {
       throw new ConvexError("This notification was already handled");
     }
+    const now = Date.now();
 
+    const ackState =
+      response === "CANT_COME" ? "DECLINED" : response === "NEED_TIME" ? "NEEDS_TIME" : "ACKNOWLEDGED";
     await ctx.db.patch(notificationId, {
-      actionState: response === "COMING" ? "ACKNOWLEDGED" : "DECLINED",
-      readAt: n.readAt ?? Date.now(),
+      actionState: ackState,
+      readAt: n.readAt ?? now,
     });
 
-    if (response === "CANT_COME" && n.bookingDbId) {
+    if (n.bookingDbId) {
       const booking = await ctx.db.get(n.bookingDbId);
-      if (booking && booking.status === "CONFIRMED") {
-        await ctx.db.patch(booking._id, {
-          status: "CANCELLED",
-          cancelledAt: Date.now(),
-          cancellationReason: "STUDENT_CANCELLED",
-          updatedAt: Date.now(),
-        });
+      if (booking) {
+        if (response === "CANT_COME" && booking.status === "CONFIRMED") {
+          await ctx.db.patch(booking._id, {
+            status: "CANCELLED",
+            cancelledAt: now,
+            cancellationReason: "STUDENT_CANCELLED",
+            updatedAt: now,
+          });
+          await ctx.db.insert("bookingEvents", {
+            bookingDbId: booking._id,
+            eventType: "STUDENT_CANCELLED",
+            detail: "Student responded \u201cCan't come\u201d to the machine-ready prompt",
+            at: now,
+          });
+        } else if (booking.escalationState) {
+          // Stop the escalation clock.
+          await ctx.db.patch(booking._id, {
+            escalationState:
+              response === "NEED_TIME" ? "REMINDED" : "ACKNOWLEDGED",
+            updatedAt: now,
+          });
+          await ctx.db.insert("bookingEvents", {
+            bookingDbId: booking._id,
+            eventType: "STUDENT_RESPONDED",
+            detail:
+              response === "NEED_TIME"
+                ? "Student asked for more time — reminder timer reset"
+                : "Student acknowledged the machine-ready prompt",
+            at: now,
+          });
+        }
       }
     }
     return { ok: true };

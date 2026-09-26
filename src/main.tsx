@@ -7,8 +7,8 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
-import { Loader2 } from "lucide-react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, Link } from "react-router";
+import { Loader2, ShieldX } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import "./index.css";
 
@@ -20,12 +20,26 @@ const Book = lazy(() => import("./pages/Book.tsx"));
 const Bookings = lazy(() => import("./pages/Bookings.tsx"));
 const Profile = lazy(() => import("./pages/Profile.tsx"));
 const Notifications = lazy(() => import("./pages/Notifications.tsx"));
-const Admin = lazy(() => import("./pages/Admin.tsx"));
+const MachineQR = lazy(() => import("./pages/MachineQR.tsx"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.tsx"));
+const AdminBookings = lazy(() => import("./pages/admin/AdminBookings.tsx"));
+const AdminMachines = lazy(() => import("./pages/admin/AdminMachines.tsx"));
+const AdminStudents = lazy(() => import("./pages/admin/AdminStudents.tsx"));
+const AdminSlots = lazy(() => import("./pages/admin/AdminSlots.tsx"));
+const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications.tsx"));
+const AdminEvents = lazy(() => import("./pages/admin/AdminEvents.tsx"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
-/** Admin-only route guard: students see a friendly block instead of the dashboard. */
+/**
+ * Admin-only route guard. Students who open an admin URL directly get an
+ * explicit 403-style screen (never the admin UI) and are bounced to their
+ * student home. Actual authorization is enforced server-side on every admin
+ * function — this guard is UX, not the security boundary.
+ */
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated, user } = useAuth();
+  const location = useLocation();
   if (isLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
@@ -34,16 +48,27 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
     );
   }
   if (!isAuthenticated) {
-    return <Navigate to="/auth?returnTo=%2Fadmin" replace />;
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/auth?returnTo=${returnTo}`} replace />;
   }
   if (user?.role !== "admin") {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background p-6">
         <div className="max-w-sm text-center">
-          <p className="font-display text-lg font-semibold">Admin access required</p>
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-red-500/10 text-red-500">
+            <ShieldX className="size-7" />
+          </div>
+          <p className="mt-4 font-display text-lg font-semibold">403 — Admin access required</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            This area is only for the HVR PG owner.
+            Your account doesn't have permission to open the admin portal. This
+            attempt has been noted.
           </p>
+          <Link
+            to="/dashboard"
+            className="mt-5 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Back to student home
+          </Link>
         </div>
       </main>
     );
@@ -201,14 +226,76 @@ createRoot(document.getElementById("root")!).render(
                   </RequireAuth>
                 }
               />
+              {/* ------------------------ Admin portal (ADMIN role only) ------------------------ */}
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               <Route
-                path="/admin"
+                path="/admin/dashboard"
                 element={
                   <RequireAdmin>
-                    <Admin />
+                    <AdminDashboard />
                   </RequireAdmin>
                 }
               />
+              <Route
+                path="/admin/bookings"
+                element={
+                  <RequireAdmin>
+                    <AdminBookings />
+                  </RequireAdmin>
+                }
+              />
+              <Route
+                path="/admin/machines"
+                element={
+                  <RequireAdmin>
+                    <AdminMachines />
+                  </RequireAdmin>
+                }
+              />
+              <Route
+                path="/admin/students"
+                element={
+                  <RequireAdmin>
+                    <AdminStudents />
+                  </RequireAdmin>
+                }
+              />
+              <Route
+                path="/admin/slots"
+                element={
+                  <RequireAdmin>
+                    <AdminSlots />
+                  </RequireAdmin>
+                }
+              />
+              <Route
+                path="/admin/notifications"
+                element={
+                  <RequireAdmin>
+                    <AdminNotifications />
+                  </RequireAdmin>
+                }
+              />
+              <Route
+                path="/admin/events"
+                element={
+                  <RequireAdmin>
+                    <AdminEvents />
+                  </RequireAdmin>
+                }
+              />
+              <Route
+                path="/admin/settings"
+                element={
+                  <RequireAdmin>
+                    <AdminSettings />
+                  </RequireAdmin>
+                }
+              />
+
+              {/* ------------------- Public machine QR landing (scanned) ------------------- */}
+              <Route path="/machine/:id" element={<MachineQR />} />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

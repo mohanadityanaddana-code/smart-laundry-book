@@ -594,7 +594,23 @@ export const finishBooking = mutation({
         actionState: "PENDING",
         createdAt: now,
       });
+      // Start the escalation clock for the next student.
+      await ctx.db.patch(next._id, {
+        escalationState: "NOTIFIED",
+        firstNotifiedAt: now,
+        updatedAt: now,
+      });
     }
+
+    // Event history for admin + booking timeline.
+    await ctx.db.insert("bookingEvents", {
+      bookingDbId,
+      eventType: "LAUNDRY_FINISHED",
+      detail: next
+        ? `Laundry finished — next student ${nextStudentName} notified`
+        : "Laundry finished — no next booking on this machine",
+      at: now,
+    });
 
     return {
       ok: true as const,
@@ -634,12 +650,33 @@ export const cancelMyBooking = mutation({
     if (booking.status !== "CONFIRMED") {
       throw new ConvexError("This booking is already cancelled");
     }
+    const now = Date.now();
+    const isAdmin = user.role === ROLES.ADMIN;
     await ctx.db.patch(bookingDbId, {
       status: "CANCELLED",
-      cancelledAt: Date.now(),
-      cancellationReason: "STUDENT_CANCELLED",
-      updatedAt: Date.now(),
+      cancelledAt: now,
+      cancellationReason: isAdmin ? "ADMIN_CANCELLED" : "STUDENT_CANCELLED",
+      updatedAt: now,
     });
+    await ctx.db.insert("bookingEvents", {
+      bookingDbId,
+      eventType: isAdmin ? "ADMIN_CANCELLED" : "STUDENT_CANCELLED",
+      detail: isAdmin
+        ? `Cancelled by admin ${user.name ?? ""}`
+        : "Cancelled by the student",
+      at: now,
+    });
+    // Notify the affected student when an admin cancels on their behalf.
+    if (isAdmin && booking.userId !== user._id) {
+      await ctx.db.insert("notifications", {
+        userId: booking.userId,
+        bookingDbId,
+        type: "SLOT_CANCELLED",
+        title: "Booking cancelled by PG admin",
+        message: `Your ${booking.date} slot ${secondsTo12h(booking.startSeconds)} – ${secondsTo12h(booking.endSeconds)} was cancelled by the PG admin. Please contact support if this looks wrong.`,
+        createdAt: now,
+      });
+    }
     return { ok: true };
   },
 });
@@ -685,6 +722,54 @@ export const machineWithDayLoad = query({
       });
     }
     return out;
+  },
+});
+
+/**
+ * Public-safe machine snapshot for the QR landing page (scanned from the
+ * sticker on the machine). No personal data is returned — only the machine's
+ * live status and how many slots remain today.
+ */
+export const publicMachine = query({
+  args: { machineId: v.id("machines") },
+  handler: async (ctx, { machineId }) => {
+    const now = Date.now();
+    const settings = await requireSettings(ctx);
+    const machine = await ctx.db.get(machineId);
+    if (!machine) return null;
+    const today = currentIstDate(now);
+    const nowSec = currentIstSecondsOfDay(now);
+    const grid = generateSlotGrid(
+      settings.openSeconds,
+      settings.closeSeconds,
+      machine.defaultDurationSeconds,
+    );
+    const bookings = await confirmedForMachineDate(ctx, machineId, today);
+    const openSlots = grid.filter((s) => {
+      if (machine.status === "MAINTENANCE") return false;
+      if (!machine.active || machine.status === "DISABLED") return false;
+      if (s.end <= nowSec) return false;
+      if (bookings.some((b) => b.startSeconds === s.start && b.endSeconds === s.end)) {
+        return false;
+      }
+      return true;
+    }).length;
+    const storedActive = bookings.map((b) => ({
+      startSeconds: b.startSeconds,
+      endSeconds: b.endSeconds,
+    }));
+    return {
+      machineNumber: machine.machineNumber,
+      name: machine.name,
+      capacityKg: machine.capacityKg,
+      location: machine.location,
+      defaultDurationSeconds: machine.defaultDurationSeconds,
+      liveStatus: deriveMachineStatus(machine.status, storedActive, now),
+      openSlots,
+      totalSlots: grid.length,
+      openTime: secondsTo12h(settings.openSeconds),
+      closeTime: secondsTo12h(settings.closeSeconds),
+    };
   },
 });
 

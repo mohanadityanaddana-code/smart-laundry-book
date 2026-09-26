@@ -12,6 +12,7 @@ import {
   weekDates,
 } from "./time";
 import { requireAdmin, confirmedForMachineDate, requireSettings } from "./bookings";
+import { audit } from "./adminPortal";
 
 /* ------------------------------------------------------------------ */
 /* Machines                                                            */
@@ -26,7 +27,8 @@ export const addMachine = mutation({
     durationMinutes: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const me = await requireAdmin(ctx);
+    const userId = me._id;
     if (args.durationMinutes < 15 || args.durationMinutes > 240) {
       throw new ConvexError("Duration must be between 15 and 240 minutes");
     }
@@ -41,7 +43,7 @@ export const addMachine = mutation({
       throw new ConvexError(`Machine ${args.machineNumber} already exists`);
     }
     const now = Date.now();
-    await ctx.db.insert("machines", {
+    const newMachineId = await ctx.db.insert("machines", {
       machineNumber: args.machineNumber,
       name: args.name.trim() || `Machine ${args.machineNumber}`,
       capacityKg: args.capacityKg,
@@ -52,6 +54,7 @@ export const addMachine = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await audit(ctx, userId, "MACHINE_ADDED", "machine", String(args.machineNumber), args.name);
     return { ok: true };
   },
 });
@@ -74,7 +77,8 @@ export const updateMachine = mutation({
     active: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const me = await requireAdmin(ctx);
+    const userId = me._id;
     const machine = await ctx.db.get(args.machineId);
     if (!machine) throw new ConvexError("Machine not found");
     if (args.durationMinutes !== undefined) {
@@ -92,6 +96,14 @@ export const updateMachine = mutation({
     if (args.status !== undefined) patch.status = args.status;
     if (args.active !== undefined) patch.active = args.active;
     await ctx.db.patch(args.machineId, patch);
+    await audit(
+      ctx,
+      userId,
+      args.status !== undefined ? "MACHINE_STATUS_CHANGED" : "MACHINE_EDITED",
+      "machine",
+      String(machine.machineNumber),
+      JSON.stringify({ ...args, machineId: undefined }),
+    );
 
     // Notify students with future bookings on a machine that just went into
     // maintenance or was disabled.
@@ -145,6 +157,8 @@ export const getSettings = query({
       emergencyPhone: s.emergencyPhone,
       latitude: s.latitude ?? null,
       longitude: s.longitude ?? null,
+      reminderTimeoutMinutes: s.reminderTimeoutMinutes ?? 10,
+      finalResponseMinutes: s.finalResponseMinutes ?? 5,
     };
   },
 });
@@ -160,9 +174,12 @@ export const updateSettings = mutation({
     emergencyPhone: v.optional(v.string()),
     latitude: v.optional(v.number()),
     longitude: v.optional(v.number()),
+    reminderTimeoutMinutes: v.optional(v.number()),
+    finalResponseMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const me = await requireAdmin(ctx);
+    const userId = me._id;
     const s = await requireSettings(ctx);
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
 
@@ -193,8 +210,21 @@ export const updateSettings = mutation({
     if (args.emergencyPhone !== undefined) patch.emergencyPhone = args.emergencyPhone.trim();
     if (args.latitude !== undefined) patch.latitude = args.latitude;
     if (args.longitude !== undefined) patch.longitude = args.longitude;
+    if (args.reminderTimeoutMinutes !== undefined) {
+      if (args.reminderTimeoutMinutes < 1 || args.reminderTimeoutMinutes > 120) {
+        throw new ConvexError("Reminder timeout must be 1–120 minutes");
+      }
+      patch.reminderTimeoutMinutes = args.reminderTimeoutMinutes;
+    }
+    if (args.finalResponseMinutes !== undefined) {
+      if (args.finalResponseMinutes < 1 || args.finalResponseMinutes > 60) {
+        throw new ConvexError("Final response window must be 1–60 minutes");
+      }
+      patch.finalResponseMinutes = args.finalResponseMinutes;
+    }
 
     await ctx.db.patch(s._id, patch);
+    await audit(ctx, userId, "SETTINGS_CHANGED", "settings", null, JSON.stringify(args));
     return { ok: true };
   },
 });
@@ -259,6 +289,7 @@ export const setStudentActive = mutation({
     const target = await ctx.db.get(userId);
     if (!target) throw new ConvexError("Student not found");
     await ctx.db.patch(userId, { disabled: !active });
+    await audit(ctx, admin._id, active ? "STUDENT_ENABLED" : "STUDENT_DISABLED", "user", target.email ?? userId, target.name ?? "");
     return { ok: true };
   },
 });

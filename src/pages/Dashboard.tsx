@@ -71,18 +71,24 @@ export default function Dashboard() {
     (n) => n.type === "MACHINE_READY" && n.actionState === "PENDING",
   );
 
-  const handleRespond = async (response: "COMING" | "CANT_COME") => {
+  const RESPONSE_META: Record<
+    "COMING" | "ACCEPT" | "CANT_COME" | "NEED_TIME",
+    { label: string; icon: typeof CheckCircle2; toast: string }
+  > = {
+    COMING: { label: "I'm coming", icon: CheckCircle2, toast: "See you there — the machine is reserved for you" },
+    ACCEPT: { label: "Accept", icon: CheckCircle2, toast: "Accepted — the machine is reserved for you" },
+    CANT_COME: { label: "Can't come", icon: XCircle, toast: "No problem — your slot has been freed for other students" },
+    NEED_TIME: { label: "Need more time", icon: Clock, toast: "Okay — we'll give you a few more minutes before reminding you again" },
+  };
+
+  const handleRespond = async (response: "COMING" | "ACCEPT" | "CANT_COME" | "NEED_TIME") => {
     if (!pendingReady) return;
     try {
       await respond({
         notificationId: pendingReady._id as never,
         response,
       });
-      toast.success(
-        response === "COMING"
-          ? "See you there — the machine is reserved for you"
-          : "No problem — your slot has been freed for other students",
-      );
+      toast.success(RESPONSE_META[response].toast);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not send your response");
     }
@@ -122,13 +128,23 @@ export default function Dashboard() {
                   <p className="mt-0.5 max-w-md text-sm text-muted-foreground">{pendingReady.message}</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => handleRespond("COMING")}>
-                  <CheckCircle2 className="mr-1.5 size-4" /> I'm coming
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => handleRespond("CANT_COME")}>
-                  <XCircle className="mr-1.5 size-4" /> Can't come
-                </Button>
+              <div className="flex flex-wrap gap-2">
+                {(["COMING", "ACCEPT", "NEED_TIME", "CANT_COME"] as const).map((r) => {
+                  const meta = RESPONSE_META[r];
+                  const Icon = meta.icon;
+                  const destructive = r === "CANT_COME";
+                  return (
+                    <Button
+                      key={r}
+                      size="sm"
+                      variant={destructive ? "outline" : r === "NEED_TIME" ? "secondary" : "default"}
+                      onClick={() => handleRespond(r)}
+                      className={destructive ? "text-destructive" : ""}
+                    >
+                      <Icon className="mr-1.5 size-4" /> {meta.label}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
           </CardContent>

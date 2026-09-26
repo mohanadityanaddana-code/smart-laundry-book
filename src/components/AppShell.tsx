@@ -47,12 +47,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const syncMe = useMutation(api.profile.syncMe);
   const unread = useQuery(api.notifications.unreadCount);
+  const sweep = useMutation(api.escalation.sweep);
 
   // Keep role/profile fields server-synced right after sign-in.
   useEffect(() => {
     if (user) {
       void syncMe().catch(() => {});
     }
+  }, [user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Escalation heartbeat: whenever any signed-in user has the app open, run
+  // the idempotent escalation sweep. This drives reminders, final windows,
+  // auto-cancellation and next-student notification without a cron server.
+  useEffect(() => {
+    if (!user) return;
+    let stopped = false;
+    const run = () => {
+      if (!stopped) void sweep({}).catch(() => {});
+    };
+    run();
+    const id = window.setInterval(run, 60_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
   }, [user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isAdmin = user?.role === "admin";

@@ -55,14 +55,23 @@ export default function Notifications() {
   const markAllRead = useMutation(api.notifications.markAllRead);
   const respond = useMutation(api.notifications.respondToReady);
 
-  const handleRespond = async (id: string, response: "COMING" | "CANT_COME") => {
+  const RESPONSE_META: Record<
+    "COMING" | "ACCEPT" | "CANT_COME" | "NEED_TIME",
+    { label: string; toast: string }
+  > = {
+    COMING: { label: "I'm coming", toast: "See you there — the machine is reserved for you" },
+    ACCEPT: { label: "Accept", toast: "Accepted — the machine is reserved for you" },
+    CANT_COME: { label: "Can't come", toast: "No problem — your slot has been freed for other students" },
+    NEED_TIME: { label: "Need more time", toast: "Okay — we'll give you a few more minutes before reminding you again" },
+  };
+
+  const handleRespond = async (
+    id: string,
+    response: "COMING" | "ACCEPT" | "CANT_COME" | "NEED_TIME",
+  ) => {
     try {
       await respond({ notificationId: id as never, response });
-      if (response === "COMING") {
-        toast.success("See you there — the machine is reserved for you");
-      } else {
-        toast.success("No problem — your slot has been freed for other students");
-      }
+      toast.success(RESPONSE_META[response].toast);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not send your response");
     }
@@ -136,24 +145,30 @@ export default function Notifications() {
                       </div>
                       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{n.message}</p>
 
-                      {/* Machine-ready action prompt */}
+                      {/* Machine-ready action prompt — 4 responses, escalation stops on any */}
                       {n.type === "MACHINE_READY" && n.actionState === "PENDING" && (
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <Button size="sm" onClick={() => handleRespond(n._id, "COMING")}>
-                            <CheckCircle2 className="mr-1.5 size-4" /> I'm coming
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRespond(n._id, "CANT_COME")}
-                          >
-                            <XCircle className="mr-1.5 size-4" /> Can't come
-                          </Button>
+                          {(["COMING", "ACCEPT", "NEED_TIME", "CANT_COME"] as const).map((r) => (
+                            <Button
+                              key={r}
+                              size="sm"
+                              variant={r === "CANT_COME" ? "outline" : r === "NEED_TIME" ? "secondary" : "default"}
+                              className={r === "CANT_COME" ? "text-destructive" : ""}
+                              onClick={() => handleRespond(n._id, r)}
+                            >
+                              {RESPONSE_META[r].label}
+                            </Button>
+                          ))}
                         </div>
                       )}
                       {n.type === "MACHINE_READY" && n.actionState === "ACKNOWLEDGED" && (
                         <Badge variant="secondary" className="mt-2 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
                           <CheckCircle2 className="mr-1 size-3" /> On the way
+                        </Badge>
+                      )}
+                      {n.type === "MACHINE_READY" && n.actionState === "NEEDS_TIME" && (
+                        <Badge variant="secondary" className="mt-2 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                          Extra time requested
                         </Badge>
                       )}
                       {n.type === "MACHINE_READY" && n.actionState === "DECLINED" && (
