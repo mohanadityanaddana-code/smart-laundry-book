@@ -34,6 +34,11 @@ type WeatherResult =
   | { ok: false; reason: string }
   | null;
 
+type AiAdviceResult =
+  | { ok: true; title: string; message: string; dryingTip: string; indoorRecommended: boolean; model: string }
+  | { ok: false; reason: string; detail: string; model: string }
+  | null;
+
 function rainTone(p: number): string {
   if (p >= 60) return "bg-sky-500/10 text-sky-700 dark:text-sky-400";
   if (p >= 35) return "bg-amber-500/10 text-amber-700 dark:text-amber-400";
@@ -60,6 +65,7 @@ export function FinishDialog({
   const [result, setResult] = useState<{
     finish: FinishResult;
     weather: WeatherResult;
+    aiAdvice: AiAdviceResult;
   } | null>(null);
 
   const weather = useQuery(
@@ -172,6 +178,24 @@ export function FinishDialog({
                   <ArrowRight className="size-3.5" />
                   Next up: {result.finish.nextStudentName}
                 </p>
+              )}
+
+              {/* Real Gemini advice (advisory only; booking outcome unchanged) */}
+              {result.aiAdvice && result.aiAdvice.ok && (
+                <div className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-4">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+                    <Sparkles className="size-4" />
+                    {result.aiAdvice.title}
+                  </p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-foreground/85">
+                    {result.aiAdvice.message}
+                  </p>
+                  {result.aiAdvice.dryingTip && (
+                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                      Tip: {result.aiAdvice.dryingTip}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
