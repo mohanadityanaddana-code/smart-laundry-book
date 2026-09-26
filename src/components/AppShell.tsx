@@ -3,6 +3,7 @@ import { useTheme } from "@/components/theme-provider";
 import logo from "@/assets/logo.svg";
 import { cn } from "@/lib/utils";
 import {
+  Bell,
   CalendarPlus,
   LayoutDashboard,
   LogOut,
@@ -17,7 +18,7 @@ import { Link, NavLink, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
 import { api } from "@/convex/_generated/api";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 
 const studentNav = [
   { to: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -45,6 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const syncMe = useMutation(api.profile.syncMe);
+  const unread = useQuery(api.notifications.unreadCount);
 
   // Keep role/profile fields server-synced right after sign-in.
   useEffect(() => {
@@ -73,8 +75,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Link to="/dashboard" className="flex h-16 items-center gap-3 px-5">
           <img src={logo} alt="" className="size-8 rounded-lg" />
           <div className="leading-tight">
-            <p className="font-display text-sm font-bold">HVR PG</p>
-            <p className="text-[11px] text-muted-foreground">Laundry</p>
+            <p className="font-display text-sm font-bold">Smart Laundry Book</p>
+            <p className="text-[11px] text-muted-foreground">HVR PG</p>
           </div>
         </Link>
 
@@ -117,6 +119,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="mt-1 flex items-center gap-1">
+            <Link to="/notifications" aria-label="Notifications" className="relative">
+              <Button variant="ghost" size="icon" className="text-muted-foreground">
+                <Bell className="size-4.5" />
+              </Button>
+              {!!unread && unread > 0 && (
+                <span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
+            </Link>
             <ThemeToggle />
             <Button
               variant="ghost"
@@ -135,20 +147,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl md:hidden">
         <Link to="/dashboard" className="flex items-center gap-2.5">
           <img src={logo} alt="" className="size-7 rounded-md" />
-          <span className="font-display text-sm font-bold">HVR PG Laundry</span>
-        </Link>
-        <div className="flex items-center">
-          <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleSignOut}
-            aria-label="Sign out"
-            className="text-muted-foreground"
-          >
-            <LogOut className="size-4.5" />
-          </Button>
-        </div>
+          <span className="font-display text-sm font-bold">Smart Laundry Book</span>
+        </Link>          <div className="flex items-center">
+            <Link to="/notifications" aria-label="Notifications" className="relative mr-1">
+              <Button variant="ghost" size="icon" className="text-muted-foreground">
+                <Bell className="size-4.5" />
+              </Button>
+              {!!unread && unread > 0 && (
+                <span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
+            </Link>
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSignOut}
+              aria-label="Sign out"
+              className="text-muted-foreground"
+            >
+              <LogOut className="size-4.5" />
+            </Button>
+          </div>
       </header>
 
       {/* Content */}

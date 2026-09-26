@@ -92,6 +92,37 @@ export const updateMachine = mutation({
     if (args.status !== undefined) patch.status = args.status;
     if (args.active !== undefined) patch.active = args.active;
     await ctx.db.patch(args.machineId, patch);
+
+    // Notify students with future bookings on a machine that just went into
+    // maintenance or was disabled.
+    if (
+      (args.status === "MAINTENANCE" || args.status === "DISABLED" || args.active === false) &&
+      machine.status !== args.status
+    ) {
+      const today = currentIstDate(Date.now());
+      const future = await ctx.db
+        .query("bookings")
+        .withIndex("by_machine_date", (q) =>
+          q.eq("machineId", args.machineId).eq("date", today),
+        )
+        .filter((q) => q.eq(q.field("status"), "CONFIRMED"))
+        .collect();
+      const nowSec = currentIstSecondsOfDay(Date.now());
+      for (const b of future) {
+        if (b.endSeconds > nowSec) {
+          await ctx.db.insert("notifications", {
+            userId: b.userId,
+            bookingDbId: b._id,
+            type: "MACHINE_MAINTENANCE",
+            title: `Machine ${machine.machineNumber} needs attention`,
+            message:
+              "This machine was taken out of service. The PG owner will help you rebook on another machine — your weekly allowance is freed if you cancel.",
+            createdAt: Date.now(),
+          });
+        }
+      }
+    }
+
     return { ok: true };
   },
 });
@@ -112,6 +143,8 @@ export const getSettings = query({
       supportName: s.supportName,
       supportPhone: s.supportPhone,
       emergencyPhone: s.emergencyPhone,
+      latitude: s.latitude ?? null,
+      longitude: s.longitude ?? null,
     };
   },
 });
@@ -125,6 +158,8 @@ export const updateSettings = mutation({
     supportName: v.optional(v.string()),
     supportPhone: v.optional(v.string()),
     emergencyPhone: v.optional(v.string()),
+    latitude: v.optional(v.number()),
+    longitude: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
@@ -156,6 +191,8 @@ export const updateSettings = mutation({
     if (args.supportName !== undefined) patch.supportName = args.supportName.trim();
     if (args.supportPhone !== undefined) patch.supportPhone = args.supportPhone.trim();
     if (args.emergencyPhone !== undefined) patch.emergencyPhone = args.emergencyPhone.trim();
+    if (args.latitude !== undefined) patch.latitude = args.latitude;
+    if (args.longitude !== undefined) patch.longitude = args.longitude;
 
     await ctx.db.patch(s._id, patch);
     return { ok: true };

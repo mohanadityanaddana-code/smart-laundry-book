@@ -19,6 +19,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const Book = lazy(() => import("./pages/Book.tsx"));
 const Bookings = lazy(() => import("./pages/Bookings.tsx"));
 const Profile = lazy(() => import("./pages/Profile.tsx"));
+const Notifications = lazy(() => import("./pages/Notifications.tsx"));
 const Admin = lazy(() => import("./pages/Admin.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
@@ -189,6 +190,14 @@ createRoot(document.getElementById("root")!).render(
                 element={
                   <RequireAuth>
                     <Profile />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/notifications"
+                element={
+                  <RequireAuth>
+                    <Notifications />
                   </RequireAuth>
                 }
               />

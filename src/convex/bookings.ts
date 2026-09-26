@@ -8,7 +8,7 @@
 
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -521,7 +521,103 @@ export const confirmBooking = mutation({
       updatedAt: ts,
     });
 
+    // In-app confirmation notification (same transaction).
+    await ctx.db.insert("notifications", {
+      userId: user._id,
+      bookingDbId: id,
+      type: "BOOKING_CONFIRMED",
+      title: "Booking confirmed",
+      message: `${bookingId} — Machine ${machine.machineNumber} on ${date} at ${secondsTo12h(startSeconds)}.`,
+      createdAt: ts,
+    });
+
     return { bookingDbId: id, bookingId, date, startSeconds, endSeconds };
+  },
+});
+
+/**
+ * "Finish & Notify Next" — the student marks their laundry done, and the next
+ * booking on this machine is notified that the machine is ready, with an
+ * action prompt they can answer from the notification center.
+ */
+export const finishBooking = mutation({
+  args: { bookingDbId: v.id("bookings") },
+  handler: async (ctx, { bookingDbId }) => {
+    const user = await requireUser(ctx);
+    const booking = await ctx.db.get(bookingDbId);
+    if (!booking) throw new ConvexError("Booking not found");
+    if (booking.userId !== user._id && user.role !== ROLES.ADMIN) {
+      throw new ConvexError("You can only finish your own laundry");
+    }
+    if (booking.status !== "CONFIRMED") {
+      throw new ConvexError("This booking is no longer active");
+    }
+    const now = Date.now();
+    const today = currentIstDate(now);
+    const nowSec = currentIstSecondsOfDay(now);
+    if (booking.date !== today) {
+      throw new ConvexError("Laundry can only be finished on the booked day");
+    }
+    if (booking.startSeconds > nowSec) {
+      throw new ConvexError("Your slot hasn't started yet");
+    }
+
+    await ctx.db.patch(bookingDbId, {
+      completedAt: now,
+      updatedAt: now,
+    });
+
+    const machine = await ctx.db.get(booking.machineId);
+
+    // Find the next confirmed booking on this machine today.
+    const upcoming = await ctx.db
+      .query("bookings")
+      .withIndex("by_machine_date", (q) =>
+        q.eq("machineId", booking.machineId).eq("date", today),
+      )
+      .filter((q) => q.eq(q.field("status"), "CONFIRMED"))
+      .collect();
+    const next = upcoming
+      .filter((b) => b._id !== bookingDbId && b.startSeconds >= nowSec)
+      .sort((a, b) => a.startSeconds - b.startSeconds)[0];
+
+    let nextStudentName: string | null = null;
+    if (next) {
+      const nextUser = await ctx.db.get(next.userId);
+      nextStudentName = nextUser?.name ?? "Student";
+      await ctx.db.insert("notifications", {
+        userId: next.userId,
+        bookingDbId: next._id,
+        type: "MACHINE_READY",
+        title: `Machine ${machine?.machineNumber ?? ""} is ready`,
+        message: `The previous laundry cycle has finished. Your slot ${secondsTo12h(next.startSeconds)} – ${secondsTo12h(next.endSeconds)} is ready now. Please head to the laundry area.`,
+        actionState: "PENDING",
+        createdAt: now,
+      });
+    }
+
+    return {
+      ok: true as const,
+      machineNumber: machine?.machineNumber ?? 0,
+      nextStudentName,
+      nextStartSeconds: next?.startSeconds ?? null,
+    };
+  },
+});
+
+/** Server-side owner resolution for the finish action (never trust the client). */
+export const bookingOwner = internalQuery({
+  args: { bookingDbId: v.id("bookings") },
+  handler: async (ctx, { bookingDbId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const booking = await ctx.db.get(bookingDbId);
+    if (!booking) return null;
+    // Only the owner or an admin may see who owns it.
+    const requester = await ctx.db.get(userId);
+    if (!requester) return null;
+    if (booking.userId !== userId && requester.role !== ROLES.ADMIN) return null;
+    return booking.userId;
   },
 });
 

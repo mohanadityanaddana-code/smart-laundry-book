@@ -116,20 +116,20 @@ function Landing() {
             >
               <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
                 <Sparkles className="size-3.5" />
-                Now booking for HVR PG students
+                Smart Laundry Book · now live at HVR PG
               </span>
               <h1 className="text-balance mt-5 font-display text-4xl font-bold leading-[1.08] sm:text-5xl lg:text-6xl">
-                Your Laundry.
+                Your laundry.
                 <br />
-                Your Slot.{" "}
+                Your slot.{" "}
                 <span className="bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent">
-                  Your Time.
+                  Your time.
                 </span>
               </h1>
               <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
-                Reserve a washing machine in seconds — no more waiting in line,
-                no more missed cycles. Live machine status, fair weekly limits,
-                and a slot that's actually yours.
+                Smart Laundry Book gives every HVR PG student a reserved washing
+                machine slot — with live machine status, instant notifications,
+                and drying-weather guidance. No queues, no guesswork.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link to="/auth?mode=register">
@@ -145,7 +145,7 @@ function Landing() {
                 </Link>
               </div>
               <p className="mt-4 text-xs text-muted-foreground">
-                Free for HVR PG residents · Booked in under 30 seconds
+                Free for HVR PG residents · Your slot confirmed in under 30 seconds
               </p>
             </motion.div>
 
@@ -222,30 +222,40 @@ function Landing() {
         <section id="features" className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
           <div className="overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-secondary/70 via-card to-card p-8 sm:p-12">
             <Reveal>
-              <h2 className="max-w-lg font-display text-3xl font-bold sm:text-4xl">
-                Built for the way HVR PG actually does laundry
-              </h2>
+            <h2 className="max-w-lg font-display text-3xl font-bold sm:text-4xl">
+              Everything your laundry routine needs, in one place
+            </h2>
             </Reveal>
             <div className="mt-10 grid gap-x-10 gap-y-8 sm:grid-cols-2">
               {[
                 {
                   title: "Live machine status",
-                  body: "Running, reserved or free — updating in real time while you watch the page.",
+                  body: "See which machines are running, reserved or free — updating in real time, without refreshing.",
                   icon: Smartphone,
                 },
                 {
                   title: "Fair weekly limits",
-                  body: "Everyone gets up to 4 slots a week. No hoarding, no 6 AM queue wars.",
+                  body: "Every student gets the same weekly allowance, so no one hogs the machines.",
                   icon: ShieldCheck,
+                },
+                {
+                  title: "Finish & notify the next student",
+                  body: "One tap ends your cycle and alerts whoever's next — the machine never sits idle.",
+                  icon: WashingMachine,
+                },
+                {
+                  title: "Weather-aware drying advice",
+                  body: "Real rain forecasts after your wash, so you know whether to line-dry or stay indoors.",
+                  icon: Smartphone,
                 },
                 {
                   title: "Verified students only",
-                  body: "Every account is verified with a one-tap email code — one account per student.",
+                  body: "Accounts are verified with a one-tap email code — one account per student.",
                   icon: ShieldCheck,
                 },
                 {
-                  title: "PG owner support",
-                  body: "Something wrong with a machine? The PG owner is one tap away.",
+                  title: "HVR PG support, one tap away",
+                  body: "Machine trouble? The PG owner's number is right there when you need it.",
                   icon: WashingMachine,
                 },
               ].map((f, i) => (
@@ -328,9 +338,9 @@ function Landing() {
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6">
           <div className="flex items-center gap-2">
             <img src={logo} alt="" className="size-5 rounded" />
-            <span>HVR PG Laundry — Your Laundry. Your Slot. Your Time.</span>
+            <span>Smart Laundry Book — booking for HVR PG students</span>
           </div>
-          <span>Built for HVR PG students</span>
+          <span>Live status · Fair slots · Zero queues</span>
         </div>
       </footer>
     </div>

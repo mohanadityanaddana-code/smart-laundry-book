@@ -70,6 +70,7 @@ const schema = defineSchema(
       status: v.union(v.literal("CONFIRMED"), v.literal("CANCELLED")),
       cancelledAt: v.optional(v.number()),
       cancellationReason: v.optional(v.string()),
+      completedAt: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
@@ -90,14 +91,56 @@ const schema = defineSchema(
       supportPhone: v.string(),
       emergencyPhone: v.string(),
       timezoneOffsetMinutes: v.number(), // 330 for IST
+      latitude: v.optional(v.number()), // PG location for weather
+      longitude: v.optional(v.number()),
       updatedAt: v.number(),
     }),
+
+    // Cached real weather lookups, keyed by booking (no fabricated data —
+    // figures always come from the configured weather provider).
+    weatherReports: defineTable({
+      bookingDbId: v.id("bookings"),
+      rainProbability: v.number(),
+      summary: v.string(),
+      guidance: v.string(),
+      provider: v.string(),
+      fetchedAt: v.number(),
+    }).index("by_booking", ["bookingDbId"]),
 
     // Monotonic per-day counters used to generate race-safe booking IDs
     counters: defineTable({
       key: v.string(), // "bookingId:YYYY-MM-DD"
       value: v.number(),
-    })      .index("by_key", ["key"]),
+    }).index("by_key", ["key"]),
+
+    // In-app notification center
+    notifications: defineTable({
+      userId: v.id("users"),
+      bookingDbId: v.optional(v.id("bookings")),
+      type: v.union(
+        v.literal("BOOKING_CONFIRMED"),
+        v.literal("MACHINE_READY"),
+        v.literal("PREVIOUS_FINISHED"),
+        v.literal("SLOT_CANCELLED"),
+        v.literal("MACHINE_MAINTENANCE"),
+        v.literal("WEATHER_ALERT"),
+        v.literal("PG_SUPPORT"),
+      ),
+      title: v.string(),
+      message: v.string(),
+      // Optional action prompt for machine-ready notifications
+      actionState: v.optional(
+        v.union(
+          v.literal("PENDING"),
+          v.literal("ACKNOWLEDGED"),
+          v.literal("DECLINED"),
+        ),
+      ),
+      readAt: v.optional(v.number()),
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_read", ["userId", "readAt"]),
 
     // tableName: defineTable({
     //   ...

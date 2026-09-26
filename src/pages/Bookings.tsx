@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppShell } from "@/components/AppShell";
+import { FinishDialog } from "@/components/FinishDialog";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
@@ -195,6 +196,11 @@ function BookingCard({
             <Badge variant="secondary" className={badge.cls}>
               {badge.label}
             </Badge>
+            {booking.derived === "ACTIVE" && (
+              <div className="mb-1">
+                <FinishDialog bookingDbId={booking._id as never} size="sm" variant="outline" />
+              </div>
+            )}
             {(booking.derived === "UPCOMING" || booking.derived === "ACTIVE") && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>

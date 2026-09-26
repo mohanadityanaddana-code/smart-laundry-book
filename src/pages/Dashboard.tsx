@@ -8,16 +8,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/AppShell";
+import { FinishDialog } from "@/components/FinishDialog";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import {
   ArrowRight,
+  BellRing,
   CalendarPlus,
+  CheckCircle2,
   Clock,
   Phone,
   Sparkles,
   WashingMachine,
+  XCircle,
 } from "lucide-react";
 import { Link } from "react-router";
 import { secondsTo12h, mmss, friendlyDate } from "@/lib/format";
@@ -59,6 +64,29 @@ export default function Dashboard() {
   const { user } = useAuth();
   const now = useLiveNow();
   const home = useQuery(api.bookings.studentHome);
+  const notifications = useQuery(api.notifications.listMine);
+  const respond = useMutation(api.notifications.respondToReady);
+
+  const pendingReady = (notifications ?? []).find(
+    (n) => n.type === "MACHINE_READY" && n.actionState === "PENDING",
+  );
+
+  const handleRespond = async (response: "COMING" | "CANT_COME") => {
+    if (!pendingReady) return;
+    try {
+      await respond({
+        notificationId: pendingReady._id as never,
+        response,
+      });
+      toast.success(
+        response === "COMING"
+          ? "See you there — the machine is reserved for you"
+          : "No problem — your slot has been freed for other students",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send your response");
+    }
+  };
   const machines = useQuery(api.bookings.machineWithDayLoad, {
     date: new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10),
   });
@@ -79,6 +107,33 @@ export default function Dashboard() {
           {firstName}
         </h1>
       </div>
+
+      {/* Machine-ready prompt — the moment the previous student finishes */}
+      {pendingReady && (
+        <Card className="mt-6 border-amber-300/60 bg-gradient-to-br from-amber-50 to-card dark:border-amber-500/30 dark:from-amber-950/30">
+          <CardContent className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                  <BellRing className="size-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{pendingReady.title}</p>
+                  <p className="mt-0.5 max-w-md text-sm text-muted-foreground">{pendingReady.message}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => handleRespond("COMING")}>
+                  <CheckCircle2 className="mr-1.5 size-4" /> I'm coming
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleRespond("CANT_COME")}>
+                  <XCircle className="mr-1.5 size-4" /> Can't come
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Active / upcoming hero card */}
       {home == null ? (
@@ -105,6 +160,9 @@ export default function Dashboard() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   Machine {home.activeBooking.machineNumber} · ends {secondsTo12h(home.activeBooking.endSeconds)}
                 </p>
+                <div className="mt-4">
+                  <FinishDialog bookingDbId={home.activeBooking._id as never} />
+                </div>
               </div>
               <WashingMachine className="size-10 text-amber-600/60" />
             </div>
