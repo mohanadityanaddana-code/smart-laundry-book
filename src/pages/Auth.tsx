@@ -108,9 +108,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               className="rounded-xl shadow-md"
             />
             <div className="text-center">
-              <p className="font-display text-lg font-bold leading-none">Smart Laundry Book</p>
+              <p className="font-display text-lg font-bold leading-none">HVR PG Laundry</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Smart washing-machine slots for HVR PG students
+                Your Laundry. Your Slot. Your Time.
               </p>
             </div>
           </Link>

@@ -76,20 +76,12 @@ export function Splash({ onDone }: { onDone: () => void }) {
               }}
             >
               <motion.span
-                className="rounded-full border border-border/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: reduced ? 0 : 0.15, duration: 0.5 }}
-              >
-                HVR PG
-              </motion.span>
-              <motion.span
                 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl"
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: reduced ? 0 : 0.35, duration: 0.6 }}
+                transition={{ delay: reduced ? 0 : 0.25, duration: 0.6 }}
               >
-                Smart Laundry Book
+                HVR PG
               </motion.span>
 
               {/* Subtle laundry visual — drum with slowly rotating load */}

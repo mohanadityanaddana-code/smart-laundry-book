@@ -71,6 +71,19 @@ const schema = defineSchema(
       cancelledAt: v.optional(v.number()),
       cancellationReason: v.optional(v.string()),
       completedAt: v.optional(v.number()),
+      // Escalation state for machine-ready chasing (null = never escalated)
+      escalationState: v.optional(
+        v.union(
+          v.literal("NOTIFIED"),
+          v.literal("REMINDED"),
+          v.literal("FINAL_WINDOW"),
+          v.literal("ACKNOWLEDGED"),
+          v.literal("DECLINED"),
+        ),
+      ),
+      firstNotifiedAt: v.optional(v.number()),
+      remindedAt: v.optional(v.number()),
+      finalDeadline: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
@@ -93,6 +106,9 @@ const schema = defineSchema(
       timezoneOffsetMinutes: v.number(), // 330 for IST
       latitude: v.optional(v.number()), // PG location for weather
       longitude: v.optional(v.number()),
+      // Escalation timeouts (minutes)
+      reminderTimeoutMinutes: v.optional(v.number()), // default 10
+      finalResponseMinutes: v.optional(v.number()), // default 5
       updatedAt: v.number(),
     }),
 
@@ -106,6 +122,51 @@ const schema = defineSchema(
       provider: v.string(),
       fetchedAt: v.number(),
     }).index("by_booking", ["bookingDbId"]),
+
+    // Event history for escalations, cancellations and admin actions.
+    bookingEvents: defineTable({
+      bookingDbId: v.id("bookings"),
+      eventType: v.string(),
+      detail: v.string(),
+      at: v.number(),
+    }).index("by_booking", ["bookingDbId"]),
+
+    // Notification voice content, configurable by the admin. `text` supports
+    // {student_name} {machine_number} {start_time} {end_time} {pg_name}.
+    voiceTemplates: defineTable({
+      name: v.string(),
+      type: v.string(), // e.g. "machine_ready"
+      text: v.string(),
+      active: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    }).index("by_type", ["type"]),
+
+    // Voice/AI call attempts (provider abstraction; mock provider by default).
+    voiceCalls: defineTable({
+      bookingDbId: v.id("bookings"),
+      targetUserId: v.id("users"),
+      provider: v.string(),
+      type: v.string(),
+      message: v.string(),
+      attemptNumber: v.number(),
+      status: v.union(
+        v.literal("COMPLETED"),
+        v.literal("FAILED"),
+        v.literal("SKIPPED_NO_PROVIDER"),
+      ),
+      detail: v.string(),
+      at: v.number(),
+    }).index("by_booking", ["bookingDbId"]),
+
+    // Per-student notification preferences
+    notificationPrefs: defineTable({
+      userId: v.id("users"),
+      bookingUpdates: v.boolean(),
+      machineReady: v.boolean(),
+      weather: v.boolean(),
+      startingSoon: v.boolean(),
+    }).index("by_user", ["userId"]),
 
     // Monotonic per-day counters used to generate race-safe booking IDs
     counters: defineTable({
@@ -125,6 +186,10 @@ const schema = defineSchema(
         v.literal("MACHINE_MAINTENANCE"),
         v.literal("WEATHER_ALERT"),
         v.literal("PG_SUPPORT"),
+        v.literal("STARTING_SOON"),
+        v.literal("REMINDER"),
+        v.literal("AUTO_CANCELLED"),
+        v.literal("RESCHEDULED"),
       ),
       title: v.string(),
       message: v.string(),
@@ -134,6 +199,7 @@ const schema = defineSchema(
           v.literal("PENDING"),
           v.literal("ACKNOWLEDGED"),
           v.literal("DECLINED"),
+          v.literal("NEEDS_TIME"),
         ),
       ),
       readAt: v.optional(v.number()),

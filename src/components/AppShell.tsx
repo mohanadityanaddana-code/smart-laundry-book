@@ -73,10 +73,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-border/60 bg-card/60 backdrop-blur-xl md:flex">
         <Link to="/dashboard" className="flex h-16 items-center gap-3 px-5">
-          <img src={logo} alt="" className="size-8 rounded-lg" />
+          <img src={logo} alt="HVR PG" className="size-8 rounded-lg" />
           <div className="leading-tight">
-            <p className="font-display text-sm font-bold">Smart Laundry Book</p>
-            <p className="text-[11px] text-muted-foreground">HVR PG</p>
+            <p className="font-display text-sm font-bold">HVR PG Laundry</p>
+            <p className="text-[11px] text-muted-foreground">Your Laundry. Your Slot. Your Time.</p>
           </div>
         </Link>
 
@@ -146,8 +146,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile top bar */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl md:hidden">
         <Link to="/dashboard" className="flex items-center gap-2.5">
-          <img src={logo} alt="" className="size-7 rounded-md" />
-          <span className="font-display text-sm font-bold">Smart Laundry Book</span>
+          <img src={logo} alt="HVR PG" className="size-7 rounded-md" />
+          <span className="font-display text-sm font-bold">HVR PG Laundry</span>
         </Link>          <div className="flex items-center">
             <Link to="/notifications" aria-label="Notifications" className="relative mr-1">
               <Button variant="ghost" size="icon" className="text-muted-foreground">

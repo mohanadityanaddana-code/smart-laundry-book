@@ -116,7 +116,7 @@ function Landing() {
             >
               <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
                 <Sparkles className="size-3.5" />
-                Smart Laundry Book · now live at HVR PG
+                Smart laundry booking for HVR PG students
               </span>
               <h1 className="text-balance mt-5 font-display text-4xl font-bold leading-[1.08] sm:text-5xl lg:text-6xl">
                 Your laundry.
@@ -127,9 +127,9 @@ function Landing() {
                 </span>
               </h1>
               <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
-                Smart Laundry Book gives every HVR PG student a reserved washing
-                machine slot — with live machine status, instant notifications,
-                and drying-weather guidance. No queues, no guesswork.
+                Reserve a washing machine in seconds — with live machine status,
+                instant notifications when it's your turn, and drying-weather
+                guidance after every wash. No queues, no guesswork.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link to="/auth?mode=register">
@@ -337,10 +337,10 @@ function Landing() {
       <footer className="border-t border-border/60 py-8">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="" className="size-5 rounded" />
-            <span>Smart Laundry Book — booking for HVR PG students</span>
+            <img src={logo} alt="HVR PG" className="size-5 rounded" />
+            <span>HVR PG Laundry — Your Laundry. Your Slot. Your Time.</span>
           </div>
-          <span>Live status · Fair slots · Zero queues</span>
+          <span>Built for HVR PG students</span>
         </div>
       </footer>
     </div>
